@@ -1,4 +1,5 @@
 const { JSDOM } = require('jsdom')
+const { argv } = require('node:process');
 
 function normalizeURL(url) {
 	urlObj = new URL(url)
@@ -24,6 +25,21 @@ function extractURLsFromHTML(htmlBody, baseURL) {
 
 	return returnList	
 }
+
+function main() {
+	let toCrawl = null
+
+	if (process.argv.length > 2 && process.argv.length < 4) {
+		toCrawl = process.argv[2]
+	} else {
+		console.log("Incorrect arguments supplied")
+		process.exit(1)
+	}
+
+	console.log(`Crawling... ${toCrawl}`)
+}
+
+main()
 
 module.exports = {
 	normalizeURL,
