@@ -17,32 +17,51 @@ function extractURLsFromHTML(htmlBody, baseURL) {
 	let links = dom.window.document.querySelectorAll('a')
 
 	for (link of links) {
-		if (link.href[0] === '/') {
-			link.href = new URL(`${baseURL}${link.href}`)
+		if (link.href.slice(0,1) === '/') {
+			try {
+				returnList.push(new URL(`${baseURL}${link.href}`).href)
+			} catch (err) {
+				console.log(`${err.message} on ${link.href}`)
+			}
+
+		} else {
+			try {
+				returnList.push(new URL(link.href).href)
+			} catch (err) {
+				console.log(`${err.message} on ${link.href}`)
+			}
 		}
-		returnList.push(new URL(link.href).href)
 	}
 
 	return returnList	
 }
 
-function main() {
-	let toCrawl = null
+async function crawlPage(url) {
+	try {
+		let response = null 
+	
+		response = await fetch(url)
+	
+		if (!response.ok) {
+			console.log("Bad request")
+			process.exit(1)
+		}
 
-	if (process.argv.length > 2 && process.argv.length < 4) {
-		toCrawl = process.argv[2]
-	} else {
-		console.log("Incorrect arguments supplied")
-		process.exit(1)
+		if (!response.headers.get("content-type").includes('text/html;')) {
+			console.log("Incorrect content type returned")
+			process.exit(1)
+		}
+
+	return response.text()
+	
+	} catch (err) {
+		console.log(err.message)	
 	}
-
-	console.log(`Crawling... ${toCrawl}`)
 }
-
-main()
 
 module.exports = {
 	normalizeURL,
-	extractURLsFromHTML,	
+	extractURLsFromHTML,
+	crawlPage
 }
 
