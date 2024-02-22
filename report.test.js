@@ -9,9 +9,9 @@ const linksDict = {
 
 test("Links are sorted by value", () => {
   expect(sortDictVal(linksDict)).toStrictEqual([
-    "link2",
-    "link4",
-    "link3",
     "link1",
+    "link3",
+    "link4",
+    "link2",
   ]);
 });
