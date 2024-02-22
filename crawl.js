@@ -1,67 +1,90 @@
-const { JSDOM } = require('jsdom')
-const { argv } = require('node:process');
+const { JSDOM } = require("jsdom");
 
 function normalizeURL(url) {
-	urlObj = new URL(url)
+  urlObj = new URL(url);
 
-	if (urlObj.pathname[urlObj.pathname.length - 1] === '/') {
-		urlObj.pathname = urlObj.pathname.substring(0, urlObj.pathname.length - 1);
-	}
+  if (urlObj.pathname[urlObj.pathname.length - 1] === "/") {
+    urlObj.pathname = urlObj.pathname.substring(0, urlObj.pathname.length - 1);
+  }
 
-	return `${urlObj.host}${urlObj.pathname}` 
+  return `${urlObj.protocol}//${urlObj.host}${urlObj.pathname}`;
 }
 
 function extractURLsFromHTML(htmlBody, baseURL) {
-	let returnList = []
-	let dom = new JSDOM(htmlBody)
-	let links = dom.window.document.querySelectorAll('a')
+  let returnList = [];
+  let dom = new JSDOM(htmlBody);
+  let links = dom.window.document.querySelectorAll("a");
 
-	for (link of links) {
-		if (link.href.slice(0,1) === '/') {
-			try {
-				returnList.push(new URL(`${baseURL}${link.href}`).href)
-			} catch (err) {
-				console.log(`${err.message} on ${link.href}`)
-			}
+  for (let link of links) {
+    // catch relative links
+    if (link.href.slice(0, 1) === "/") {
+      try {
+        returnList.push(
+          new URL(`${baseURL.slice(0, baseURL.length)}${link.href}`).href,
+        );
+      } catch (err) {
+        console.log(`${err.message} on ${link.href}`);
+      }
+    } else {
+      try {
+        returnList.push(new URL(link.href).href);
+      } catch (err) {
+        console.log(`${err.message} on ${link.href}`);
+      }
+    }
+  }
 
-		} else {
-			try {
-				returnList.push(new URL(link.href).href)
-			} catch (err) {
-				console.log(`${err.message} on ${link.href}`)
-			}
-		}
-	}
-
-	return returnList	
+  return returnList;
 }
 
-async function crawlPage(url) {
-	try {
-		let response = null 
-	
-		response = await fetch(url)
-	
-		if (!response.ok) {
-			console.log("Bad request")
-			process.exit(1)
-		}
+async function crawlPage(baseURL, currentURL, pages) {
+  if (!currentURL.includes(new URL(baseURL).host)) {
+    return pages;
+  }
+  currentURL = normalizeURL(currentURL);
 
-		if (!response.headers.get("content-type").includes('text/html;')) {
-			console.log("Incorrect content type returned")
-			process.exit(1)
-		}
+  if (!(currentURL in pages)) {
+    if (currentURL === normalizeURL(baseURL)) {
+      pages[currentURL] = 0;
+    } else {
+      pages[currentURL] = 1;
+    }
+  } else {
+    pages[currentURL]++;
 
-	return response.text()
-	
-	} catch (err) {
-		console.log(err.message)	
-	}
+    return pages;
+  }
+
+  try {
+    response = await fetch(currentURL);
+    console.log(`Crawling... ${currentURL}`);
+
+    if (!response.ok) {
+      console.log("Bad request");
+      return pages;
+    }
+
+    if (!response.headers.get("content-type").includes("text/html")) {
+      console.log("Incorrect content type returned");
+      return pages;
+    }
+
+    let responseText = await response.text();
+    let returnLinks = extractURLsFromHTML(responseText, baseURL);
+
+    for (let link of returnLinks) {
+      pages = await crawlPage(baseURL, link, pages);
+    }
+
+    return pages;
+  } catch (err) {
+    console.log(err.message);
+    return pages;
+  }
 }
 
 module.exports = {
-	normalizeURL,
-	extractURLsFromHTML,
-	crawlPage
-}
-
+  normalizeURL,
+  extractURLsFromHTML,
+  crawlPage,
+};
